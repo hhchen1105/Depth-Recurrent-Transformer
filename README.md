@@ -22,7 +22,7 @@ routing with no structural hints (relational text).
 ## Architecture
 
 ```
-input tokens -> embedding -> [ ThinkingBlock  x T steps ] -> [CLS] readout -> prediction
+input tokens -> embedding -> [ ThinkingBlock  x T steps ] -> readout head -> prediction
                                     ^ shared weights
 ```
 
@@ -43,12 +43,15 @@ The recurrent **ThinkingBlock** (one pre-norm Transformer block, applied *T* tim
   awareness, LayerScale (`gamma` init `1e-4`) to protect fragile symbolic states
   from untrained-block noise early in training. The graph task uses a hard
   adjacency mask instead and needs neither.
+- **Readout head**: an MLP on the final state `H^(T)`. Graph concatenates the
+  source and target node representations; the sequence tasks read the `[CLS]`
+  position, so the core must route the answer there by the last step.
 
 ## Tasks
 
 All three tasks are **binary classification**; difficulty is a single integer
-(hop count / nesting depth / relation-chain length) that the model must match
-with enough thinking steps.
+(hop count / nesting depth / relation-chain length), and solving an instance
+needs at least that many thinking steps.
 
 | | `graph/` | `nested-expr/` | `family-reason/` |
 |---|---|---|---|
@@ -67,6 +70,51 @@ answer, so the model must actually track the running sum rather than count
 words. All models are under 1M parameters; the scale is deliberate, to isolate
 the recurrence mechanism from pretraining confounds.
 
+## Results
+
+All three tasks show the same **computational frontier**: in the
+(difficulty x thinking steps) grid, accuracy jumps from chance (~0.5, red) to
+near-perfect (green) once the model is given at least as many thinking steps as
+the instance is deep. Dashed lines mark the training range; everything outside
+is out-of-distribution (OOD). Regenerate any figure below with the task's
+`plot_results.py` / `plot_supervision_sweep.py` (no GPU needed).
+
+**Experiment I -- graph reachability.** Adjacency masking makes the frontier a
+sharp staircase (exactly one step per hop). Trained on 1-5 hops / 5-8 steps, the
+model still solves 6- and 8-hop paths perfectly given enough steps and stays
+stable out to 20 steps; at `d = 128` it hits a wall at 10 hops.
+
+![graph reachability accuracy heatmap](graph/graph_results.png)
+
+**Experiment II -- nested boolean logic.** RoPE only softly biases attention, so
+the frontier is gradual and degradation is graceful: >90% accuracy at nesting
+depth 14 (1.75x the depth-8 training limit), with no collapse even at 24
+thinking steps.
+
+![nested boolean logic accuracy heatmap](nested-expr/logic_results.png)
+
+**Experiment III -- relational composition.** With the facts shuffled, position
+carries no structural signal, so difficulty is strictly monotonic in chain
+length. The core still discovers the latent pointer-chasing route, generalising
+above chance to depth-6/7 chains (OOD) with extra thinking steps.
+
+![relational composition accuracy heatmap](family-reason/family_results.png)
+
+**Silent thinking vs. intermediate supervision** (`d = 256`, 5 seeds). Sweeping
+the blend weight `alpha`: `alpha = 0` (silent thinking) is the only setting that
+turns extra width into deeper propagation -- OOD accuracy ~0.84, generalisation
+gap ~0.16. Any `alpha >= 0.1` drops OOD accuracy to ~0.75 and widens the gap to
+~0.25, while *raising* per-step training accuracy and the Step-1 shortcut
+(impossibly high 1-step accuracy on 12-hop paths). It is a switch, not a dial.
+
+![supervision-weight dose-response at d=256](graph/supervision_sweep_d256_alpha.png)
+
+Across model width, silent thinking's OOD accuracy climbs with capacity while
+intermediate supervision stays flat -- the extra parameters go into fitting the
+intermediate readouts, not a deeper algorithm.
+
+![OOD accuracy and generalisation gap vs model width](graph/supervision_sweep_capacity.png)
+
 ## Repository layout
 
 ```
@@ -74,7 +122,7 @@ graph/
   graph_experiment.py        Experiment I: train + full-grid eval + heatmap.
                              Flags: --per-step-loss (alpha=1 objective),
                              --emb-ablation, --seed.
-  plot_results.py            rebuild the paper heatmap PDF (no retraining)
+  plot_results.py            rebuild the result heatmap (.pdf + .png, no retraining)
   supervision_sweep.py       one (alpha, d, seed) point of the silent-thinking
                              vs intermediate-supervision interpolation sweep
   plot_supervision_sweep.py  aggregate sweep_results/ -> summary table + figures
@@ -92,12 +140,27 @@ run_*.sh                     Slurm submission templates (see "Cluster runs")
 ```
 
 Each task directory keeps its committed outputs: the result figure
-(`<task>_results.pdf`) and the accuracy grid behind it (an array literal at the
-top of `plot_results.py`, plus `family_results.npy` for that task), the trained
-seed-42 checkpoint (`*_model.pt`), and the depth-embedding diagnostic's outputs
-(`embedding_ablation_results.json`, `gate_stats.png`,
+(`<task>_results.pdf` / `.png`) and the accuracy grid behind it (an array
+literal at the top of `plot_results.py`, plus `family_results.npy` for that
+task), the trained checkpoint (see below), and the depth-embedding diagnostic's
+outputs (`embedding_ablation_results.json`, `gate_stats.png`,
 `embedding_ablation_summary.png`). The supervision-sweep figures under `graph/`
 are regenerated by `plot_supervision_sweep.py` from `graph/sweep_results/`.
+
+### Checkpoints
+
+Every experiment script saves the trained model's `state_dict` to
+`<task>_model.pt` (seed 42) when it finishes:
+
+| file | size | produced by | role |
+|---|---|---|---|
+| `graph/graph_model.pt` | ~0.8 MB | `graph_experiment.py` | reference only -- the `--emb-ablation` run retrains from scratch |
+| `nested-expr/logic_model.pt` | ~3.9 MB | `logic_experiment.py` | reference only |
+| `family-reason/family_model.pt` | ~3.9 MB | `family_experiment.py` | **required input** -- `embedding_ablation.py` loads it and does not retrain |
+
+`family-reason/embedding_ablation.py` is a complete worked example of
+rebuilding the model with the right config and calling
+`model.load_state_dict(torch.load("family_model.pt", map_location="cpu"))`.
 
 ## Setup
 
@@ -114,12 +177,13 @@ Each experiment script generates its own data, trains, evaluates over the full
 its own directory (outputs are written next to the script):
 
 ```bash
-cd graph         && python graph_experiment.py     # Experiment I  (Fig. 2)
-cd nested-expr   && python logic_experiment.py      # Experiment II (Fig. 3)
-cd family-reason && python family_experiment.py     # Experiment III (Fig. 4)
+cd graph         && python graph_experiment.py     # Experiment I:  graph reachability
+cd nested-expr   && python logic_experiment.py      # Experiment II: nested boolean logic
+cd family-reason && python family_experiment.py     # Experiment III: relational composition
 ```
 
-**Silent thinking vs. intermediate supervision** (paper Sec. 4.4 / Table III).
+**Silent thinking vs. intermediate supervision** (the paper's
+*Silent Thinking vs. Intermediate Supervision* experiment, Table III).
 The blended objective is
 `L(alpha) = (1 - alpha) * CE(final step) + (alpha / T) * sum_t CE(step t)`,
 so `alpha = 0` is silent thinking and `alpha = 1` is full per-step supervision.
@@ -128,12 +192,14 @@ Run the grid of `(alpha, d, seed)` points, then aggregate:
 ```bash
 cd graph
 python supervision_sweep.py --alpha 0 --d-model 256 --seed 42   # one point
-# ... sweep alpha in {0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0}, d in {128, 192, 256, 384},
-#     seeds 42-46 (see run_supervision_sweep*.sh) ...
+# The full sweep (run_supervision_sweep.sh + run_supervision_sweep_d256.sh) covers
+# alpha in {0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0}, d in {32, 64, 128, 192, 256, 384},
+# with 3 seeds at d in {32,64,128} and 5 seeds at d in {192,256,384}.
 python plot_supervision_sweep.py    # prints the summary table, writes the figures
 ```
 
-**Depth-embedding OOD-confound diagnostic** (paper Sec. 5.2): checks that
+**Depth-embedding OOD-confound diagnostic** (the paper's
+*Depth-Embedding Extrapolation Is Not Confounded* analysis): checks that
 beyond-training-range stability is not an artifact of untrained depth-embedding
 rows, by re-evaluating each trained checkpoint with the untrained rows replaced
 by zeros / clamping / re-initialisation.

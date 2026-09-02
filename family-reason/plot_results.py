@@ -1,4 +1,4 @@
-"""Regenerate the family relationship reasoning heatmap as PDF from saved results."""
+"""Regenerate the family relationship reasoning heatmap (PDF + PNG) from saved results."""
 
 import os
 import numpy as np
@@ -75,4 +75,5 @@ cbar.ax.tick_params(labelsize=20)
 plt.tight_layout(rect=[0, 0, 1, 0.92])
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "family_results.pdf")
 plt.savefig(out, dpi=150)
-print(f"Saved to {out}")
+plt.savefig(out.replace(".pdf", ".png"), dpi=150)
+print(f"Saved to {out} (+ .png)")

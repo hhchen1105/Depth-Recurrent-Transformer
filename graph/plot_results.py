@@ -1,4 +1,4 @@
-"""Regenerate the graph reachability heatmap as PDF from saved results."""
+"""Regenerate the graph reachability heatmap (PDF + PNG) from saved results."""
 
 import numpy as np
 import matplotlib
@@ -77,4 +77,5 @@ cbar.ax.tick_params(labelsize=20)
 plt.tight_layout(rect=[0, 0, 1, 0.92])
 out = "graph_results.pdf"
 plt.savefig(out, dpi=150)
-print(f"Saved to {out}")
+plt.savefig(out.replace(".pdf", ".png"), dpi=150)
+print(f"Saved to {out} (+ .png)")

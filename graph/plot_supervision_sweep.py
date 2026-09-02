@@ -1,12 +1,12 @@
 """
-Aggregate sweep_results/*.json (written by supervision_sweep.py) into the two
-figures for the supervision analysis:
+Aggregate sweep_results/*.json (written by supervision_sweep.py) into the
+figures for the supervision analysis (each written as both .pdf and .png):
 
-  supervision_sweep_alpha.pdf       E1: metrics vs alpha at d_model = 128
-  supervision_sweep_d256_alpha.pdf  E3: same dose-response at d_model = 256
-                                        (the regime where the OOD cost resolves)
-  supervision_sweep_capacity.pdf    E2: OOD acc / generalisation gap vs d_model
-                                        for alpha in {0, 1}
+  supervision_sweep_alpha       E1: metrics vs alpha at d_model = 128
+  supervision_sweep_d256_alpha  E3: same dose-response at d_model = 256
+                                    (the regime where the OOD cost resolves)
+  supervision_sweep_capacity    E2: OOD acc / generalisation gap vs d_model
+                                    for alpha in {0, 1}
 
 Also prints a plain-text summary table (mean +/- std over seeds).
 Pure matplotlib; safe to run on the login node.
@@ -112,7 +112,8 @@ def plot_alpha_doseresponse(rows, d_model, out_name, panel):
     fig.tight_layout()
     out = os.path.join(HERE, out_name)
     fig.savefig(out, dpi=150)
-    print(f"[{panel}] saved {out}")
+    fig.savefig(out.replace(".pdf", ".png"), dpi=150)
+    print(f"[{panel}] saved {out} (+ .png)")
 
 
 def plot_e1(rows):
@@ -161,7 +162,8 @@ def plot_e2(rows):
     fig.tight_layout()
     out = os.path.join(HERE, "supervision_sweep_capacity.pdf")
     fig.savefig(out, dpi=150)
-    print(f"[E2] saved {out}")
+    fig.savefig(out.replace(".pdf", ".png"), dpi=150)
+    print(f"[E2] saved {out} (+ .png)")
 
 
 def print_table(rows):

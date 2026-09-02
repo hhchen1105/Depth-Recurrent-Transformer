@@ -1,4 +1,4 @@
-"""Regenerate the nested boolean expression heatmap as PDF from saved results."""
+"""Regenerate the nested boolean expression heatmap (PDF + PNG) from saved results."""
 
 import os
 import numpy as np
@@ -78,4 +78,5 @@ cbar.ax.tick_params(labelsize=26)
 plt.tight_layout(rect=[0, 0, 1, 0.92])
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logic_results.pdf")
 plt.savefig(out, dpi=150)
-print(f"Saved to {out}")
+plt.savefig(out.replace(".pdf", ".png"), dpi=150)
+print(f"Saved to {out} (+ .png)")
