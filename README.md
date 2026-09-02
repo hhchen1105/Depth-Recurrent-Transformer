@@ -46,17 +46,26 @@ The recurrent **ThinkingBlock** (one pre-norm Transformer block, applied *T* tim
 
 ## Tasks
 
+All three tasks are **binary classification**; difficulty is a single integer
+(hop count / nesting depth / relation-chain length) that the model must match
+with enough thinking steps.
+
 | | `graph/` | `nested-expr/` | `family-reason/` |
 |---|---|---|---|
-| Problem | directed-graph reachability (is `r` reachable from `s`?) | evaluate `!((T&F)|(!(T|F)))` | relational composition over shuffled facts (CLUTRR-inspired, signed-offset algebra) |
+| Problem | given a directed graph and two nodes `s`, `r`, decide whether a path `s -> r` exists | given a nested boolean expression such as `!((T&F)\|(!(T\|F)))`, decide whether it evaluates to `True` | given a shuffled bag of kinship facts and a queried relation between two entities, decide whether that relation is correct |
+| Difficulty axis | path length (hops) | expression nesting depth | length of the parent/child relation chain |
 | Input bias | adjacency-masked attention (1 step = 1 hop) | full attention + RoPE | full attention + RoPE, facts shuffled |
 | `d` / heads / `d_ff` | 128 / 4 / 256 | 256 / 8 / 1024 | 256 / 8 / 1024 |
 | RoPE / LayerScale | no / no | yes / yes | yes / yes |
 | Train step range `T` / `T_max` | [5, 8] / 20 | [4, 16] / 28 | [1, 12] / 20 |
 | Train -> eval difficulty | 1-5 -> 12 hops | depth 1-8 -> 14 | depth 2-5 -> 9 |
 
-All models are under 1M parameters; the scale is deliberate, to isolate the
-recurrence mechanism from pretraining confounds.
+The `family-reason` task is CLUTRR-inspired but synthetic: the correct relation
+is a signed offset over parent (`+1`) / child (`-1`) hops rather than literal
+kinship semantics, and hard negatives share the offset parity of the true
+answer, so the model must actually track the running sum rather than count
+words. All models are under 1M parameters; the scale is deliberate, to isolate
+the recurrence mechanism from pretraining confounds.
 
 ## Repository layout
 
