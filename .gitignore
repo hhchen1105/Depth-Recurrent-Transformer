@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# Environments
+.venv/
+venv/
+env/
+
+# Cluster / run artifacts
+slurm_logs/
+*.log
+slurm-*.out
+
+# Scratch
+tmp/
+*.tmp
+.DS_Store
+
+# Note: trained checkpoints (*.pt) and result JSON/figures are tracked on
+# purpose so the tables and plots can be regenerated without retraining.
