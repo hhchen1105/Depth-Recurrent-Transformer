@@ -12,11 +12,12 @@ Objective (generalises the two extremes used in the paper):
     alpha = 0  -> silent thinking / final-step-only  (== graph_experiment.py default)
     alpha = 1  -> intermediate supervision           (== graph_experiment.py --per-step-loss)
 
-E1: fix d_model = 128, sweep alpha in {0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0}.
-E2: fix alpha in {0, 1}, sweep d_model in {32, 64, 128, 256}.
+The full grid (both run scripts) is alpha in {0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0}
+crossed with d_model in {32, 64, 128, 192, 256, 384}: the alpha dose-response at
+d = 128 and 256, and the alpha in {0, 1} capacity trace over all widths.
 
-This is a GPU training job. Submit via run_supervision_sweep.sh; do not run on a
-login node.
+This is a GPU training job (one point takes a few minutes on a GPU). Use
+run_supervision_sweep.sh / run_supervision_sweep_d256.sh for the full grid.
 """
 
 import os

@@ -8,7 +8,7 @@ and prints a compact comparison table (baseline / zero / clamp / reinit
 in the four difficulty x thinking-step-range quadrants) plus the gate
 in-range vs beyond-range summary.
 
-Pure file IO -- safe to run on the login node.
+Pure file IO; no GPU required.
 """
 
 import json

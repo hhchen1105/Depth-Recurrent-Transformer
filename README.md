@@ -87,8 +87,8 @@ stable out to 20 steps; at `d = 128` it hits a wall at 10 hops.
 ![graph reachability accuracy heatmap](graph/graph_results.png)
 
 **Experiment II -- nested boolean logic.** RoPE only softly biases attention, so
-the frontier is gradual and degradation is graceful: >90% accuracy at nesting
-depth 14 (1.75x the depth-8 training limit), with no collapse even at 24
+the frontier is gradual and degradation is graceful: around 90% accuracy at
+nesting depth 14 (1.75x the depth-8 training limit), with no collapse even at 24
 thinking steps.
 
 ![nested boolean logic accuracy heatmap](nested-expr/logic_results.png)
@@ -168,19 +168,28 @@ rebuilding the model with the right config and calling
 pip install -r requirements.txt   # torch>=2.0, numpy, matplotlib, networkx
 ```
 
-A CUDA GPU is recommended; every experiment also runs on CPU (slower).
+The three training experiments need a CUDA GPU in practice (CPU works but is far
+slower). The analysis and plotting scripts (`plot_results.py`,
+`plot_supervision_sweep.py`, `emb_ablation_report.py`) are CPU-only and run in
+seconds.
 
 ## Reproducing the results
 
 Each experiment script generates its own data, trains, evaluates over the full
-(difficulty x steps) grid, prints the table, and writes a heatmap. Run each from
-its own directory (outputs are written next to the script):
+(difficulty x steps) grid, prints the table, and writes a plain heatmap of
+*that* run. Run each from its own directory (outputs are written next to the
+script):
 
 ```bash
 cd graph         && python graph_experiment.py     # Experiment I:  graph reachability
 cd nested-expr   && python logic_experiment.py      # Experiment II: nested boolean logic
 cd family-reason && python family_experiment.py     # Experiment III: relational composition
 ```
+
+The committed `<task>_results.pdf` / `.png` shown under [Results](#results) are
+the styled figures; `plot_results.py` rebuilds them (no GPU) from the accuracy
+grid stored as an array literal at its top. Compare your run's printed table
+against that grid.
 
 **Silent thinking vs. intermediate supervision** (the paper's
 *Silent Thinking vs. Intermediate Supervision* experiment, Table III).

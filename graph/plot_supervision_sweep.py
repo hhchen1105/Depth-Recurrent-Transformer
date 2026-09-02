@@ -9,7 +9,7 @@ figures for the supervision analysis (each written as both .pdf and .png):
                                     for alpha in {0, 1}
 
 Also prints a plain-text summary table (mean +/- std over seeds).
-Pure matplotlib; safe to run on the login node.
+Pure matplotlib; no GPU required.
 """
 
 import os
