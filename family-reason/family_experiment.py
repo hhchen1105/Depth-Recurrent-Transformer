@@ -47,12 +47,15 @@ from torch.utils.data import Dataset, DataLoader
 # ----------------------------------------------------------------------
 # 0. Reproducibility
 # ----------------------------------------------------------------------
-SEED = 42
-random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-if torch.cuda.is_available():
-    torch.cuda.manual_seed_all(SEED)
+SEED = 42   # default; override with --seed. Seeding happens in main().
+
+
+def _seed_everything(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 if torch.cuda.is_available():
     DEVICE = torch.device("cuda")
@@ -566,6 +569,17 @@ def evaluate(model, loader, n_steps):
 # ----------------------------------------------------------------------
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser(description="Relational composition (family) experiment.")
+    ap.add_argument("--seed", type=int, default=SEED,
+                    help="random seed; the accuracy grid is always saved to "
+                         "family_results_s<seed>.npy (seed 42 also to "
+                         "family_results.npy), and non-default seeds write "
+                         "family_results_s<seed>.pdf instead of family_results.pdf")
+    args = ap.parse_args()
+    seed = args.seed
+    _seed_everything(seed)
+
     # -- Hyper-parameters --
     D_MODEL          = 256
     NHEAD            = 8
@@ -687,7 +701,8 @@ def main():
 
     # -- Save checkpoint --
     out_dir = os.path.dirname(os.path.abspath(__file__))
-    ckpt_path = os.path.join(out_dir, "family_model.pt")
+    ckpt_name = "family_model.pt" if seed == SEED else f"family_model_s{seed}.pt"
+    ckpt_path = os.path.join(out_dir, ckpt_name)
     torch.save(model.state_dict(), ckpt_path)
     print(f"\n  Checkpoint saved to {ckpt_path}")
 
@@ -703,8 +718,11 @@ def main():
             acc = evaluate(model, test_loaders[depth], n_steps=steps)
             results[i, j] = acc
 
-    # -- Save results array --
-    np.save(os.path.join(out_dir, "family_results.npy"), results)
+    # -- Save results array (per seed; seed 42 also to the canonical name for
+    #    plot_results.py / make_baseline_table.py) --
+    np.save(os.path.join(out_dir, f"family_results_s{seed}.npy"), results)
+    if seed == SEED:
+        np.save(os.path.join(out_dir, "family_results.npy"), results)
 
     # -- Print table --
     header = "  Depth \\ Steps |" + "".join(f"  {s:>3}  " for s in TEST_STEPS) + "|"
@@ -766,7 +784,8 @@ def main():
     cbar.set_label("Accuracy", fontsize=11)
 
     plt.tight_layout()
-    fig_path = os.path.join(out_dir, "family_results.pdf")
+    fig_name = "family_results.pdf" if seed == SEED else f"family_results_s{seed}.pdf"
+    fig_path = os.path.join(out_dir, fig_name)
     plt.savefig(fig_path, dpi=150)
     print(f"\n  Heatmap saved to {fig_path}")
 

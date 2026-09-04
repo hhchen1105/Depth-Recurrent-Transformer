@@ -1,0 +1,68 @@
+{
+  "task": "graph",
+  "seed": 43,
+  "test_hops": [
+    1,
+    2,
+    3,
+    4,
+    6,
+    8,
+    10,
+    12
+  ],
+  "id_hops_max": 5,
+  "results": {
+    "Fixed-Depth GNN": {
+      "params": 535169,
+      "recurrent": false,
+      "grid": {
+        "1": 1.0,
+        "2": 1.0,
+        "3": 1.0,
+        "4": 1.0,
+        "6": 0.506,
+        "8": 0.5,
+        "10": 0.5,
+        "12": 0.51
+      },
+      "id_acc": 1.0,
+      "ood_reach": 4,
+      "seconds": 118.7
+    },
+    "Graph Transformer": {
+      "params": 832385,
+      "recurrent": false,
+      "grid": {
+        "1": 1.0,
+        "2": 1.0,
+        "3": 1.0,
+        "4": 1.0,
+        "6": 0.834,
+        "8": 0.5,
+        "10": 0.5,
+        "12": 0.5
+      },
+      "id_acc": 1.0,
+      "ood_reach": 4,
+      "seconds": 142.7
+    },
+    "Weight-Tied Transformer": {
+      "params": 172545,
+      "recurrent": true,
+      "grid": {
+        "1": 1.0,
+        "2": 1.0,
+        "3": 1.0,
+        "4": 1.0,
+        "6": 1.0,
+        "8": 1.0,
+        "10": 0.5,
+        "12": 0.54
+      },
+      "id_acc": 1.0,
+      "ood_reach": 8,
+      "seconds": 146.4
+    }
+  }
+}
