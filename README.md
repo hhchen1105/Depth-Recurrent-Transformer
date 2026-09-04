@@ -146,12 +146,13 @@ ut_act_seq.py                genuine Universal Transformer with ACT halting +
                              <task>/act_results.json
                              (python ut_act_seq.py {logic,family} --full --seeds 42 43 44)
 make_baseline_table.py       aggregate baseline_results.json + act_results.json
-                             -> LaTeX rows (Weight-Tied + Universal Transformer
-                             (ACT) + ours)
+                             + the "ours" grids -> the full tab:baselines body
+                             (\multirow rows, paste-ready), 3-seed mean +/- std
 emb_ablation_common.py       shared code for the depth-embedding diagnostic
 emb_ablation_report.py       aggregate the three embedding_ablation_results.json
 inference_cost.py            measure peak memory + latency of the reasoning core
-                             vs step count and batch size (GPU)
+                             vs step count and batch size (GPU); --plot-only
+                             redraws the figure from inference_cost.json (no GPU)
 run_*.sh                     Slurm submission templates (see "Cluster runs")
 ```
 
@@ -230,7 +231,7 @@ for s in 42 43 44; do python seq_baselines.py family --full --seed $s; done
 python ut_act_seq.py logic  --full --seeds 42 43 44
 python ut_act_seq.py family --full --seeds 42 43 44
 
-python make_baseline_table.py             # aggregate (3-seed mean+/-std) -> LaTeX rows
+python make_baseline_table.py             # -> paste-ready tab:baselines body (3-seed mean+/-std)
 ```
 
 `make_baseline_table.py` globs every per-seed result it can find -- weight-tied
@@ -246,7 +247,8 @@ printed on the OOD column where it rounds to `>= 1`.  Slurm templates:
 **Inference cost** (paper's memory/latency figure):
 
 ```bash
-python inference_cost.py    # GPU; writes inference_cost.{json,pdf,png}
+python inference_cost.py               # GPU; writes inference_cost.{json,pdf,png}
+python inference_cost.py --plot-only    # no GPU; redraw the figure from the shipped JSON
 ```
 
 **Silent thinking vs. intermediate supervision** (the paper's
