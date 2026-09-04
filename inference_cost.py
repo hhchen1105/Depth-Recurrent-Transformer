@@ -25,7 +25,8 @@ import matplotlib.pyplot as plt
 D_MODEL, NHEAD, DIM_FF, L = 256, 8, 1024, 128
 T_LIST = [1, 2, 4, 8, 16, 32, 64]
 B_LIST = [1, 32, 128, 512]
-N_BACKBONE = 24          # representative reasoning-LLM backbone depth for the overlay
+N_BACKBONE = 24          # depth of the reference token backbone (GPT-2 medium)
+D_BACKBONE = 1024        # its hidden width; measured, see measure_kv_cache.py
 BYTES_PER = 2            # fp16 KV cache
 REPS = 30
 
@@ -82,10 +83,20 @@ def measure(block, B, T, device):
     return peak_mb, latency_ms
 
 
-def kv_cache_mb(B, T, d=D_MODEL, N=N_BACKBONE):
-    """Analytical KV-cache memory for generating T tokens after an L-token prompt
-    through an N-layer backbone: 2 * B * (L + T) * N * d * bytes."""
-    return BYTES_PER * 2 * B * (L + T) * N * d / 1e6
+def kv_cache_mb(B, T, d=D_BACKBONE, N=N_BACKBONE):
+    """Key-value cache that the T *thinking* tokens alone add to an N-layer
+    backbone: 2 * B * T * N * d * bytes.
+
+    The prompt's own cache is excluded on purpose. Section "Computational and
+    Memory Complexity" compares the cost of thinking, and the recurrent core
+    carries the same prompt as the backbone does, so charging the prompt to the
+    reasoning budget would flatter our side of the comparison.
+
+    The shape and the constant are not assumed: measure_kv_cache.py reads the
+    real `past_key_values` of GPT-2 medium (N=24, d=1024) and checks that the
+    cache equals 2 * B * (L + T) * N * d * bytes to the byte, and that it is
+    exactly linear in B. Subtracting the prompt term is therefore exact."""
+    return BYTES_PER * 2 * B * T * N * d / 1e6
 
 
 def make_figure(out):
@@ -112,15 +123,15 @@ def make_figure(out):
     axm.axhline(1.0, color="black", lw=2.2)   # the core: caption notes y=1 is it
     for B in b_list:
         core_flat = max(out["recurrent"][str(B)]["peak_mb"])
-        ratio = [kv / core_flat for kv in out["token_kv_cache_mb"][str(B)]]
+        ratio = [kv_cache_mb(B, T) / core_flat for T in t_list]
         axm.plot(t_list, ratio, "o--", color=cmap[B], lw=2.2, ms=6,
                  label=f"$B{{=}}{B}$")
     axm.set_xlabel("reasoning steps $T$", fontsize=FS_LABEL)
     axm.set_ylabel("peak memory / core", fontsize=FS_LABEL)
     axm.set_ylim(bottom=0)
     axm.tick_params(labelsize=FS_TICK)
-    axm.legend(fontsize=FS_LEG, loc="lower right", handlelength=1.6,
-               title="token KV-cache", title_fontsize=FS_LEG)
+    axm.legend(fontsize=FS_LEG, loc="upper left", handlelength=1.6,
+               title="thinking-token KV-cache", title_fontsize=FS_LEG)
     axm.grid(alpha=0.3)
 
     for B in b_list:
@@ -146,10 +157,10 @@ def main():
 
     out = {
         "config": dict(d_model=D_MODEL, nhead=NHEAD, dim_ff=DIM_FF, seq_len=L,
-                       n_backbone=N_BACKBONE, reps=REPS,
+                       n_backbone=N_BACKBONE, d_backbone=D_BACKBONE, reps=REPS,
                        gpu=torch.cuda.get_device_name(0)),
         "T_list": T_LIST, "B_list": B_LIST,
-        "recurrent": {}, "token_kv_cache_mb": {},
+        "recurrent": {}, "thinking_kv_cache_mb": {},
     }
     for B in B_LIST:
         mem_r, lat_r = [], []
@@ -160,7 +171,7 @@ def main():
             print(f"  B={B:>4} T={T:>3}   peak={p:8.1f} MB   latency={ms:8.3f} ms",
                   flush=True)
         out["recurrent"][str(B)] = dict(peak_mb=mem_r, latency_ms=lat_r)
-        out["token_kv_cache_mb"][str(B)] = [round(kv_cache_mb(B, T), 1) for T in T_LIST]
+        out["thinking_kv_cache_mb"][str(B)] = [round(kv_cache_mb(B, T), 1) for T in T_LIST]
 
     with open("inference_cost.json", "w") as f:
         json.dump(out, f, indent=2)
